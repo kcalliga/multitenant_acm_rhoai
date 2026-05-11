@@ -1,0 +1,22 @@
+---
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: granite-models-usera
+  namespace: usera
+spec:
+  generateBucketName: granite-models-usera
+  storageClassName: openshift-storage.noobaa.io
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class
+---
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: granite-models-userb
+  namespace: userb
+spec:
+  generateBucketName: granite-models-userb
+  storageClassName: openshift-storage.noobaa.io
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class

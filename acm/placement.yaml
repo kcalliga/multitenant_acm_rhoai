@@ -1,0 +1,22 @@
+# acm/placement.yaml
+#
+# Placement rule targeting any managed cluster labelled:
+#   demo-ai-workloads=true
+#
+# Label your managed cluster from the ACM hub:
+#   oc label managedcluster <your-cluster-name> demo-ai-workloads=true
+#
+# Both the GPU Operator and Grafana Operator policies bind to this placement.
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: demo-ai-placement
+  namespace: open-cluster-management-policies
+spec:
+  clusterSets: []
+  predicates:
+    - requiredClusterSelector:
+        labelSelector:
+          matchLabels:
+            demo-ai-workloads: "true"

@@ -1,0 +1,80 @@
+# observability/grafana-operator-sub.yaml
+#
+# Installs the community Grafana Operator into its own namespace.
+# The operator is cluster-scoped so it can manage Grafana CRs
+# in any namespace (usera, userb).
+#
+# Note: This is also enforced via ACM policy (acm/policy-grafana-operator.yaml).
+# Apply directly here only if deploying without ACM.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: grafana-operator
+  labels:
+    kubernetes.io/metadata.name: grafana-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: grafana-operator
+  namespace: grafana-operator
+spec:
+  upgradeStrategy: Default
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: grafana-operator
+  namespace: grafana-operator
+spec:
+  channel: v5
+  installPlanApproval: Automatic
+  name: grafana-operator
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+---
+# ClusterRole so Grafana service accounts can read Prometheus
+# metrics via the OpenShift monitoring stack
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-proxy
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get"]
+  - nonResourceURLs:
+      - "/metrics"
+    verbs: ["get"]
+---
+# Allow Grafana SAs in usera and userb to use the thanos-querier route
+# by binding the openshift-cluster-monitoring-view ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-usera-monitoring-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+  - kind: ServiceAccount
+    name: grafana-sa-usera
+    namespace: usera
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-userb-monitoring-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+  - kind: ServiceAccount
+    name: grafana-sa-userb
+    namespace: userb

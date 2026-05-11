@@ -1,0 +1,95 @@
+# acm/policy-grafana-operator.yaml
+#
+# ACM Policy that ensures the community Grafana Operator is installed
+# on the managed cluster so tenant Grafana CRs can be reconciled.
+# Apply on the ACM Hub cluster.
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-grafana-operator
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    # 1. Namespace for the operator
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-operator-namespace
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: grafana-operator
+                  labels:
+                    kubernetes.io/metadata.name: grafana-operator
+
+    # 2. OperatorGroup
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-operator-operatorgroup
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: operators.coreos.com/v1
+                kind: OperatorGroup
+                metadata:
+                  name: grafana-operator
+                  namespace: grafana-operator
+                spec:
+                  upgradeStrategy: Default
+
+    # 3. Subscription
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-operator-subscription
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: operators.coreos.com/v1alpha1
+                kind: Subscription
+                metadata:
+                  name: grafana-operator
+                  namespace: grafana-operator
+                spec:
+                  channel: v5
+                  installPlanApproval: Automatic
+                  name: grafana-operator
+                  source: community-operators
+                  sourceNamespace: openshift-marketplace
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-grafana-operator-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-grafana-operator
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

@@ -1,0 +1,63 @@
+# acm/gitops/applicationset.yaml
+#
+# Creates an ArgoCD ApplicationSet on the ACM hub that watches the
+# acm/policygenerator/ directory in your Git repo.
+# When Kustomize runs with --enable-alpha-plugins it invokes the
+# PolicyGenerator plugin binary, expands policygenerator.yaml into
+# full ACM Policy + PlacementBinding objects, and syncs them to the hub.
+# ACM then propagates the policies to any managed cluster labelled
+# demo-ai-workloads=true.
+#
+# The ApplicationSet itself always targets local-cluster (the hub)
+# because that is where Policy objects live.  The Placement inside
+# each generated policy selects the managed cluster.
+#
+# Replace the following before applying:
+#   YOUR_GIT_REPO_URL  - e.g. https://github.com/yourorg/demo-ai.git
+#   YOUR_GIT_BRANCH    - e.g. main
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: demo-ai-policies
+  namespace: openshift-gitops
+spec:
+  generators:
+    - clusterDecisionResource:
+        configMapRef: acm-placement
+        labelSelector:
+          matchLabels:
+            cluster.open-cluster-management.io/placement: demo-ai-hub-placement
+        requeueAfterSeconds: 180
+  template:
+    metadata:
+      name: demo-ai-policies-{{name}}
+    spec:
+      project: default
+      source:
+        repoURL: YOUR_GIT_REPO_URL
+        targetRevision: YOUR_GIT_BRANCH
+        path: acm/policygenerator
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: policies
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+---
+# Placement that selects the hub/local-cluster for ApplicationSet
+# (policies are always created on the hub, not the managed cluster)
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: demo-ai-hub-placement
+  namespace: openshift-gitops
+spec:
+  predicates:
+    - requiredClusterSelector:
+        labelSelector:
+          matchLabels:
+            local-cluster: "true"

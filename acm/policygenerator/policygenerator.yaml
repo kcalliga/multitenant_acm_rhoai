@@ -1,0 +1,69 @@
+# acm/policygenerator/policygenerator.yaml
+#
+# Generates ACM Policy objects from the plain manifests in each subdirectory.
+# Kustomize + the PolicyGenerator plugin processes this file and produces
+# fully-wrapped Policy + PlacementBinding objects that ArgoCD pushes to the
+# ACM hub, which then propagates them to the managed cluster.
+#
+# Cluster selector targets any cluster labelled:  demo-ai-workloads=true
+# Label your managed cluster from the hub:
+#   oc label managedcluster <cluster-name> demo-ai-workloads=true
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PolicyGenerator
+metadata:
+  name: demo-ai-workloads
+policyDefaults:
+  namespace: policies
+  remediationAction: enforce
+  severity: high
+  placement:
+    clusterSelectors:
+      demo-ai-workloads: "true"
+  categories:
+    - CM Configuration Management
+  controls:
+    - CM-2 Baseline Configuration
+  standards:
+    - NIST SP 800-53
+
+policies:
+  # ── Operators ─────────────────────────────────────────────────────────────
+  - name: policy-gpu-operator
+    manifests:
+      - path: manifests/gpu-operator/gpu-operator.yaml
+
+  - name: policy-grafana-operator
+    manifests:
+      - path: manifests/grafana-operator/grafana-operator.yaml
+
+  # ── Tenant Infrastructure ─────────────────────────────────────────────────
+  - name: policy-namespaces
+    manifests:
+      - path: manifests/namespaces/namespaces.yaml
+
+  - name: policy-gpu-quota
+    manifests:
+      - path: manifests/gpu-quota/gpu-quota.yaml
+
+  - name: policy-obc
+    manifests:
+      - path: manifests/obc/obc.yaml
+
+  # ── Serving ───────────────────────────────────────────────────────────────
+  - name: policy-servingruntimes
+    manifests:
+      - path: manifests/servingruntimes/servingruntimes.yaml
+
+  # ── Grafana Stack ─────────────────────────────────────────────────────────
+  - name: policy-grafana-instances
+    manifests:
+      - path: manifests/grafana-instances/grafana-instances.yaml
+
+  - name: policy-grafana-datasource
+    manifests:
+      - path: manifests/grafana-datasource/grafana-datasource.yaml
+
+  - name: policy-grafana-dashboard
+    manifests:
+      - path: manifests/grafana-dashboard/grafana-dashboard.yaml

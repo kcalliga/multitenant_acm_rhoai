@@ -1,0 +1,485 @@
+# observability/grafana-dashboard.yaml
+#
+# Per-tenant Grafana dashboard showing DCGM GPU metrics scoped to
+# pods running in the tenant's namespace.
+#
+# Key scoping mechanism:
+#   DCGM metrics from the GPU Operator include a `pod` label (the vLLM pod name)
+#   and an `exported_namespace` label.  The dashboard variable $namespace
+#   is pre-set to the tenant namespace so each Grafana only shows its own data.
+#
+# Metrics used (from your GPU metrics blog post):
+#   DCGM_FI_DEV_GPU_UTIL        - GPU utilization %
+#   DCGM_FI_DEV_FB_USED         - Framebuffer memory used (MiB)
+#   DCGM_FI_DEV_FB_FREE         - Framebuffer memory free (MiB)
+#   DCGM_FI_DEV_GPU_TEMP        - GPU temperature (C)
+#   DCGM_FI_DEV_MEM_COPY_UTIL   - Memory copy utilization %
+#   DCGM_FI_DEV_POWER_USAGE     - Power draw (W)
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: gpu-metrics-usera
+  namespace: usera
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana-usera
+  json: |
+    {
+      "title": "GPU Metrics - User A",
+      "uid": "gpu-usera",
+      "tags": ["gpu", "dcgm", "usera"],
+      "timezone": "browser",
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "type": "constant",
+            "query": "usera",
+            "hide": 2,
+            "label": "Namespace"
+          },
+          {
+            "name": "pod",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"$namespace\"}, pod)",
+            "refresh": 2,
+            "includeAll": true,
+            "multi": false,
+            "label": "Pod"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "GPU Utilization %",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "GPU Util - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": { "mode": "palette-classic" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 90 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "GPU Memory Used (MiB)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_FB_USED{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "FB Used - {{pod}}"
+            },
+            {
+              "expr": "DCGM_FI_DEV_FB_FREE{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "FB Free - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "min": 0
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "GPU Temperature (°C)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 8, "h": 7 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_GPU_TEMP{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "Temp - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Memory Copy Utilization %",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 8, "w": 8, "h": 7 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_MEM_COPY_UTIL{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "Mem Copy Util - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "min": 0, "max": 100 }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Power Draw (W)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 8, "w": 8, "h": 7 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_POWER_USAGE{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "Power - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "watt" }
+          }
+        },
+        {
+          "id": 6,
+          "title": "GPU Utilization - Current",
+          "type": "gauge",
+          "gridPos": { "x": 0, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "GPU Util"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent", "min": 0, "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 90 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "GPU Memory Used - Current",
+          "type": "gauge",
+          "gridPos": { "x": 6, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_FB_USED{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "FB Used"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "decmbytes", "min": 0 }
+          }
+        },
+        {
+          "id": 8,
+          "title": "GPU Temperature - Current",
+          "type": "gauge",
+          "gridPos": { "x": 12, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_GPU_TEMP{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "Temp"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius", "min": 0, "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "Power Draw - Current",
+          "type": "gauge",
+          "gridPos": { "x": 18, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_POWER_USAGE{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "Power"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "watt", "min": 0 }
+          }
+        }
+      ],
+      "schemaVersion": 36
+    }
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: gpu-metrics-userb
+  namespace: userb
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana-userb
+  json: |
+    {
+      "title": "GPU Metrics - User B",
+      "uid": "gpu-userb",
+      "tags": ["gpu", "dcgm", "userb"],
+      "timezone": "browser",
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "type": "constant",
+            "query": "userb",
+            "hide": 2,
+            "label": "Namespace"
+          },
+          {
+            "name": "pod",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"$namespace\"}, pod)",
+            "refresh": 2,
+            "includeAll": true,
+            "multi": false,
+            "label": "Pod"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "GPU Utilization %",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "GPU Util - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent", "min": 0, "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 90 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "GPU Memory Used (MiB)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_FB_USED{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "FB Used - {{pod}}"
+            },
+            {
+              "expr": "DCGM_FI_DEV_FB_FREE{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "FB Free - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "decmbytes", "min": 0 }
+          }
+        },
+        {
+          "id": 3,
+          "title": "GPU Temperature (°C)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 8, "h": 7 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_GPU_TEMP{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "Temp - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Memory Copy Utilization %",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 8, "w": 8, "h": 7 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_MEM_COPY_UTIL{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "Mem Copy Util - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "min": 0, "max": 100 }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Power Draw (W)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 8, "w": 8, "h": 7 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_POWER_USAGE{exported_namespace=\"$namespace\", pod=~\"$pod\"}",
+              "legendFormat": "Power - {{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "watt" }
+          }
+        },
+        {
+          "id": 6,
+          "title": "GPU Utilization - Current",
+          "type": "gauge",
+          "gridPos": { "x": 0, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "GPU Util"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent", "min": 0, "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 90 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "GPU Memory Used - Current",
+          "type": "gauge",
+          "gridPos": { "x": 6, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_FB_USED{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "FB Used"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "decmbytes", "min": 0 }
+          }
+        },
+        {
+          "id": 8,
+          "title": "GPU Temperature - Current",
+          "type": "gauge",
+          "gridPos": { "x": 12, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_GPU_TEMP{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "Temp"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius", "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "Power Draw - Current",
+          "type": "gauge",
+          "gridPos": { "x": 18, "y": 15, "w": 6, "h": 5 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "avg(DCGM_FI_DEV_POWER_USAGE{exported_namespace=\"$namespace\", pod=~\"$pod\"})",
+              "legendFormat": "Power"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "watt", "min": 0 }
+          }
+        }
+      ],
+      "schemaVersion": 36
+    }

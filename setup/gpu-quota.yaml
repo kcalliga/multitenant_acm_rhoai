@@ -1,0 +1,25 @@
+# setup/gpu-quota.yaml
+# Limits each tenant namespace to 1 GPU.
+# Since there is no time-slicing or MIG on this cluster, only one
+# InferenceService can hold the GPU at a time.  The other tenant's
+# pod will stay Pending until the GPU is released.
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gpu-quota
+  namespace: usera
+spec:
+  hard:
+    requests.nvidia.com/gpu: "1"
+    limits.nvidia.com/gpu: "1"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gpu-quota
+  namespace: userb
+spec:
+  hard:
+    requests.nvidia.com/gpu: "1"
+    limits.nvidia.com/gpu: "1"

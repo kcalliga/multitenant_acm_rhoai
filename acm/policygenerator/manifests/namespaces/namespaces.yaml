@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: usera
+  labels:
+    kubernetes.io/metadata.name: usera
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/display-name: "User A - Granite Inference"
+    openshift.io/description: "Tenant A model serving namespace"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: userb
+  labels:
+    kubernetes.io/metadata.name: userb
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/display-name: "User B - Granite Inference"
+    openshift.io/description: "Tenant B model serving namespace"
+---
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceProject
+metadata:
+  name: usera
+  namespace: usera
+spec:
+  description: "Tenant A - Granite 7B Inference"
+  displayName: "User A"
+---
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceProject
+metadata:
+  name: userb
+  namespace: userb
+spec:
+  description: "Tenant B - Granite 7B Inference"
+  displayName: "User B"

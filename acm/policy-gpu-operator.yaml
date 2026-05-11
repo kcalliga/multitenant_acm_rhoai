@@ -1,0 +1,146 @@
+# acm/policy-gpu-operator.yaml
+#
+# ACM Policy that ensures the NVIDIA GPU Operator is installed on the
+# managed cluster.  Apply this on the ACM Hub cluster.
+#
+# The policy checks for the gpu-operator Subscription in the
+# nvidia-gpu-operator namespace.  If absent, it creates it.
+#
+# Placement targets any managed cluster with label:
+#   demo-ai-workloads=true
+#
+# Label your managed cluster:
+#   oc label managedcluster <cluster-name> demo-ai-workloads=true
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-gpu-operator
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    # 1. Ensure nvidia-gpu-operator namespace exists
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: gpu-operator-namespace
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: nvidia-gpu-operator
+                  labels:
+                    kubernetes.io/metadata.name: nvidia-gpu-operator
+                    openshift.io/cluster-monitoring: "true"
+
+    # 2. Ensure OperatorGroup exists
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: gpu-operator-operatorgroup
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: operators.coreos.com/v1
+                kind: OperatorGroup
+                metadata:
+                  name: gpu-operator-group
+                  namespace: nvidia-gpu-operator
+                spec:
+                  targetNamespaces:
+                    - nvidia-gpu-operator
+
+    # 3. Ensure Subscription exists (installs the operator)
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: gpu-operator-subscription
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: operators.coreos.com/v1alpha1
+                kind: Subscription
+                metadata:
+                  name: gpu-operator-certified
+                  namespace: nvidia-gpu-operator
+                spec:
+                  channel: v24.9
+                  installPlanApproval: Automatic
+                  name: gpu-operator-certified
+                  source: certified-operators
+                  sourceNamespace: openshift-marketplace
+
+    # 4. Ensure ClusterPolicy (GPU Operator config) exists
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: gpu-clusterpolicy
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: nvidia.com/v1
+                kind: ClusterPolicy
+                metadata:
+                  name: gpu-cluster-policy
+                spec:
+                  operator:
+                    defaultRuntime: crio
+                  dcgm:
+                    enabled: true
+                  dcgmExporter:
+                    enabled: true
+                    config:
+                      name: ""
+                    serviceMonitor:
+                      enabled: true
+                  devicePlugin:
+                    enabled: true
+                  driver:
+                    enabled: true
+                    useOpenKernelModules: true
+                  gfd:
+                    enabled: true
+                  migManager:
+                    enabled: false   # MIG disabled per requirements
+                  nodeStatusExporter:
+                    enabled: true
+                  toolkit:
+                    enabled: true
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-gpu-operator-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-gpu-operator
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

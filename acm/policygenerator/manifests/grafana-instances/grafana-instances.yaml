@@ -1,0 +1,124 @@
+# Replace CLUSTER_DOMAIN before committing to Git:
+#   grep -rl 'CLUSTER_DOMAIN' . | xargs sed -i "s/CLUSTER_DOMAIN/<your-domain>/g"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-sa-usera
+  namespace: usera
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.grafana: >
+      {"kind":"OAuthRedirectReference","apiVersion":"v1",
+       "reference":{"kind":"Route","name":"grafana-usera"}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-sa-userb
+  namespace: userb
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.grafana: >
+      {"kind":"OAuthRedirectReference","apiVersion":"v1",
+       "reference":{"kind":"Route","name":"grafana-userb"}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-usera-monitoring-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+  - kind: ServiceAccount
+    name: grafana-sa-usera
+    namespace: usera
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-userb-monitoring-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+  - kind: ServiceAccount
+    name: grafana-sa-userb
+    namespace: userb
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana-usera
+  namespace: usera
+  labels:
+    dashboards: grafana-usera
+spec:
+  serviceAccount:
+    metadata:
+      name: grafana-sa-usera
+  config:
+    log:
+      mode: console
+    auth:
+      disable_login_form: "false"
+    security:
+      admin_user: admin
+      admin_password: grafana
+  ingress:
+    enabled: true
+    annotations:
+      route.openshift.io/termination: edge
+    hostname: grafana-usera.apps.CLUSTER_DOMAIN
+  deployment:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: grafana
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana-userb
+  namespace: userb
+  labels:
+    dashboards: grafana-userb
+spec:
+  serviceAccount:
+    metadata:
+      name: grafana-sa-userb
+  config:
+    log:
+      mode: console
+    auth:
+      disable_login_form: "false"
+    security:
+      admin_user: admin
+      admin_password: grafana
+  ingress:
+    enabled: true
+    annotations:
+      route.openshift.io/termination: edge
+    hostname: grafana-userb.apps.CLUSTER_DOMAIN
+  deployment:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: grafana
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

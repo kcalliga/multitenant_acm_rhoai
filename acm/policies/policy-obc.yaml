@@ -1,0 +1,79 @@
+# acm/policies/policy-obc.yaml
+# Creates one ObjectBucketClaim per tenant namespace.
+# NooBaa provisions an isolated S3 bucket with scoped credentials
+# for each OBC.  The resulting Secret and ConfigMap in each namespace
+# are then used by patch-data-connections.sh to build the RHOAI
+# DataConnection (this dynamic step cannot be done via ACM policy).
+#
+# Depends on policy-namespaces being enforced first.
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-obc
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: obc-usera
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: objectbucket.io/v1alpha1
+                kind: ObjectBucketClaim
+                metadata:
+                  name: granite-models-usera
+                  namespace: usera
+                spec:
+                  generateBucketName: granite-models-usera
+                  storageClassName: openshift-storage.noobaa.io
+                  additionalConfig:
+                    bucketclass: noobaa-default-bucket-class
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: obc-userb
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: objectbucket.io/v1alpha1
+                kind: ObjectBucketClaim
+                metadata:
+                  name: granite-models-userb
+                  namespace: userb
+                spec:
+                  generateBucketName: granite-models-userb
+                  storageClassName: openshift-storage.noobaa.io
+                  additionalConfig:
+                    bucketclass: noobaa-default-bucket-class
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-obc-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-obc
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

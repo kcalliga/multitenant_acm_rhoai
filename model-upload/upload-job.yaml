@@ -1,0 +1,228 @@
+# model-upload/upload-job.yaml
+#
+# Runs a Job in each tenant namespace that:
+#   1. Pulls ibm-granite/granite-7b-instruct from Hugging Face
+#   2. Uploads all model files to the tenant's NooBaa OBC bucket
+#
+# Prerequisites:
+#   - OBCs must be Bound (run setup/obc.yaml first)
+#   - patch-data-connections.sh must have run (so DataConnection exists)
+#   - hf-token Secret must exist in each namespace:
+#
+#       oc create secret generic hf-token \
+#         --from-literal=token=<YOUR_HF_TOKEN> -n usera
+#       oc create secret generic hf-token \
+#         --from-literal=token=<YOUR_HF_TOKEN> -n userb
+#
+# The Job uses the official python:3.11-slim image and installs
+# huggingface-hub + boto3 at runtime — no custom image needed.
+#
+# Expected runtime: 15-30 min depending on cluster egress bandwidth.
+# Monitor with:  oc logs -f job/upload-granite-model -n usera
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-granite-model
+  namespace: usera
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: uploader
+          image: python:3.11-slim
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "Installing dependencies..."
+              pip install --quiet huggingface-hub boto3 botocore tqdm
+
+              echo "Starting upload of ibm-granite/granite-7b-instruct..."
+              python3 - <<'PYEOF'
+              import os, boto3, pathlib
+              from huggingface_hub import snapshot_download
+              from botocore.client import Config
+
+              HF_TOKEN    = os.environ["HF_TOKEN"]
+              ENDPOINT    = os.environ["AWS_S3_ENDPOINT"]
+              ACCESS_KEY  = os.environ["AWS_ACCESS_KEY_ID"]
+              SECRET_KEY  = os.environ["AWS_SECRET_ACCESS_KEY"]
+              BUCKET      = os.environ["AWS_S3_BUCKET"]
+              PREFIX      = "models/granite-7b-instruct"
+              REPO        = "ibm-granite/granite-7b-instruct"
+
+              print(f"Downloading {REPO} from Hugging Face...")
+              local_dir = snapshot_download(
+                  repo_id=REPO,
+                  token=HF_TOKEN,
+                  local_dir="/tmp/model",
+                  ignore_patterns=["*.msgpack", "*.h5", "flax_*"],
+              )
+              print(f"Download complete: {local_dir}")
+
+              s3 = boto3.client(
+                  "s3",
+                  endpoint_url=ENDPOINT,
+                  aws_access_key_id=ACCESS_KEY,
+                  aws_secret_access_key=SECRET_KEY,
+                  config=Config(signature_version="s3v4"),
+                  verify=False,
+              )
+
+              files = list(pathlib.Path(local_dir).rglob("*"))
+              total  = sum(1 for f in files if f.is_file())
+              done   = 0
+
+              for f in files:
+                  if not f.is_file():
+                      continue
+                  key = f"{PREFIX}/{f.relative_to(local_dir)}"
+                  print(f"Uploading [{done+1}/{total}] {key}")
+                  s3.upload_file(str(f), BUCKET, key)
+                  done += 1
+
+              print(f"Upload complete. {done} files in s3://{BUCKET}/{PREFIX}")
+              PYEOF
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: token
+            - name: AWS_S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-usera
+                  key: AWS_S3_ENDPOINT
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-usera
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-usera
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-usera
+                  key: AWS_S3_BUCKET
+            # Disable SSL verification for internal NooBaa endpoint
+            - name: PYTHONWARNINGS
+              value: "ignore:Unverified HTTPS request"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-granite-model
+  namespace: userb
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: uploader
+          image: python:3.11-slim
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "Installing dependencies..."
+              pip install --quiet huggingface-hub boto3 botocore tqdm
+
+              echo "Starting upload of ibm-granite/granite-7b-instruct..."
+              python3 - <<'PYEOF'
+              import os, boto3, pathlib
+              from huggingface_hub import snapshot_download
+              from botocore.client import Config
+
+              HF_TOKEN    = os.environ["HF_TOKEN"]
+              ENDPOINT    = os.environ["AWS_S3_ENDPOINT"]
+              ACCESS_KEY  = os.environ["AWS_ACCESS_KEY_ID"]
+              SECRET_KEY  = os.environ["AWS_SECRET_ACCESS_KEY"]
+              BUCKET      = os.environ["AWS_S3_BUCKET"]
+              PREFIX      = "models/granite-7b-instruct"
+              REPO        = "ibm-granite/granite-7b-instruct"
+
+              print(f"Downloading {REPO} from Hugging Face...")
+              local_dir = snapshot_download(
+                  repo_id=REPO,
+                  token=HF_TOKEN,
+                  local_dir="/tmp/model",
+                  ignore_patterns=["*.msgpack", "*.h5", "flax_*"],
+              )
+              print(f"Download complete: {local_dir}")
+
+              s3 = boto3.client(
+                  "s3",
+                  endpoint_url=ENDPOINT,
+                  aws_access_key_id=ACCESS_KEY,
+                  aws_secret_access_key=SECRET_KEY,
+                  config=Config(signature_version="s3v4"),
+                  verify=False,
+              )
+
+              files = list(pathlib.Path(local_dir).rglob("*"))
+              total  = sum(1 for f in files if f.is_file())
+              done   = 0
+
+              for f in files:
+                  if not f.is_file():
+                      continue
+                  key = f"{PREFIX}/{f.relative_to(local_dir)}"
+                  print(f"Uploading [{done+1}/{total}] {key}")
+                  s3.upload_file(str(f), BUCKET, key)
+                  done += 1
+
+              print(f"Upload complete. {done} files in s3://{BUCKET}/{PREFIX}")
+              PYEOF
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: token
+            - name: AWS_S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-userb
+                  key: AWS_S3_ENDPOINT
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-userb
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-userb
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: aws-connection-granite-userb
+                  key: AWS_S3_BUCKET
+            - name: PYTHONWARNINGS
+              value: "ignore:Unverified HTTPS request"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"

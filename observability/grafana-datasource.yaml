@@ -1,0 +1,63 @@
+# observability/grafana-datasource.yaml
+#
+# Each Grafana instance gets a GrafanaDataSource that points at the
+# OpenShift cluster Prometheus via the thanos-querier route.
+#
+# Authentication uses a ServiceAccount token (Bearer token) which is
+# automatically created by the Grafana Operator for the grafana-sa-* accounts.
+# The SA must have cluster-monitoring-view (bound in grafana-operator-sub.yaml).
+#
+# The token is projected into the Grafana pod and referenced here as
+# a Kubernetes Secret named grafana-sa-<tenant>-token.
+#
+# Run the following to create the tokens AFTER the Grafana pods are Running:
+#
+#   ./observability/create-sa-tokens.sh
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDataSource
+metadata:
+  name: prometheus-usera
+  namespace: usera
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana-usera
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+      isDefault: true
+      jsonData:
+        httpHeaderName1: Authorization
+        timeInterval: 30s
+        tlsSkipVerify: true
+      secureJsonData:
+        httpHeaderValue1: >-
+          Bearer ${GRAFANA_SA_TOKEN}
+      editable: false
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDataSource
+metadata:
+  name: prometheus-userb
+  namespace: userb
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana-userb
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+      isDefault: true
+      jsonData:
+        httpHeaderName1: Authorization
+        timeInterval: 30s
+        tlsSkipVerify: true
+      secureJsonData:
+        httpHeaderValue1: >-
+          Bearer ${GRAFANA_SA_TOKEN}
+      editable: false

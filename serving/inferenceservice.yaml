@@ -1,0 +1,61 @@
+# serving/inferenceservice.yaml
+#
+# One InferenceService per tenant namespace.
+#
+# storageUri format for KServe with a DataConnection secret:
+#   s3://<bucket-name>/<path>
+#
+# The bucket name is NOT known until after the OBC is provisioned.
+# Run the helper script to substitute it before applying:
+#
+#   ./serving/apply-inferenceservices.sh
+#
+# That script reads the bucket name from the DataConnection secret
+# and applies the InferenceService with the correct storageUri.
+#
+# The storage.key field tells KServe which Secret to use for S3 credentials.
+# It must match the DataConnection secret name exactly.
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: granite-usera
+  namespace: usera
+  annotations:
+    serving.knative.openshift.io/enablePassthrough: "true"
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      runtime: vllm-granite
+      # BUCKET_NAME_USERA is substituted by apply-inferenceservices.sh
+      storageUri: s3://BUCKET_NAME_USERA/models/granite-7b-instruct
+      storage:
+        key: aws-connection-granite-usera
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: granite-userb
+  namespace: userb
+  annotations:
+    serving.knative.openshift.io/enablePassthrough: "true"
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      runtime: vllm-granite
+      # BUCKET_NAME_USERB is substituted by apply-inferenceservices.sh
+      storageUri: s3://BUCKET_NAME_USERB/models/granite-7b-instruct
+      storage:
+        key: aws-connection-granite-userb

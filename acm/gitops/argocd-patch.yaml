@@ -1,0 +1,36 @@
+# acm/gitops/argocd-patch.yaml
+#
+# Patch the ArgoCD instance in openshift-gitops to install the
+# PolicyGenerator Kustomize plugin binary.
+#
+# Apply with:
+#   oc patch argocd openshift-gitops -n openshift-gitops \
+#     --type=merge --patch-file acm/gitops/argocd-patch.yaml
+#
+# NOTE: This merges into your existing ArgoCD spec. The two sections
+# that matter are kustomizeBuildOptions and spec.repo.
+# If your ArgoCD instance already has repo config, merge manually
+# rather than applying this patch directly.
+spec:
+  kustomizeBuildOptions: --enable-alpha-plugins
+  repo:
+    env:
+      - name: KUSTOMIZE_PLUGIN_HOME
+        value: /etc/kustomize/plugin
+    initContainers:
+      - name: policy-generator-install
+        image: registry.redhat.io/rhacm2/multicluster-operators-subscription-rhel9:v2.11.7-13
+        command:
+          - /bin/bash
+        args:
+          - -c
+          - cp /policy-generator/PolicyGenerator-not-fips-compliant /policy-generator-tmp/PolicyGenerator
+        volumeMounts:
+          - mountPath: /policy-generator-tmp
+            name: policy-generator
+    volumeMounts:
+      - mountPath: /etc/kustomize/plugin/policy.open-cluster-management.io/v1/policygenerator
+        name: policy-generator
+    volumes:
+      - name: policy-generator
+        emptyDir: {}

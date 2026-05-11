@@ -1,0 +1,165 @@
+# acm/policies/policy-servingruntimes.yaml
+# Deploys the vLLM Nvidia GPU ServingRuntime into each tenant namespace.
+# Depends on policy-namespaces being enforced first.
+# The InferenceService is NOT managed by ACM policy because the storageUri
+# requires the NooBaa bucket name which is only known after the OBC is Bound.
+# Use serving/apply-inferenceservices.sh for that step.
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-servingruntimes
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: servingruntime-usera
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: serving.kserve.io/v1alpha1
+                kind: ServingRuntime
+                metadata:
+                  name: vllm-granite
+                  namespace: usera
+                  annotations:
+                    openshift.io/display-name: "vLLM Granite GPU Runtime"
+                    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+                spec:
+                  annotations:
+                    prometheus.io/port: "8080"
+                    prometheus.io/path: "/metrics"
+                  multiModel: false
+                  supportedModelFormats:
+                    - autoSelect: true
+                      name: vLLM
+                  containers:
+                    - name: kserve-container
+                      image: quay.io/modh/vllm:rhoai-2.16-cuda
+                      command:
+                        - python
+                        - -m
+                        - vllm.entrypoints.openai.api_server
+                      args:
+                        - "--model=/mnt/models"
+                        - "--served-model-name={{.Name}}"
+                        - "--max-model-len=2048"
+                        - "--gpu-memory-utilization=0.92"
+                        - "--dtype=float16"
+                        - "--max-num-seqs=1"
+                        - "--port=8080"
+                      env:
+                        - name: HF_HOME
+                          value: /tmp/hf_home
+                      ports:
+                        - containerPort: 8080
+                          protocol: TCP
+                      resources:
+                        requests:
+                          cpu: "2"
+                          memory: "8Gi"
+                          nvidia.com/gpu: "1"
+                        limits:
+                          cpu: "4"
+                          memory: "16Gi"
+                          nvidia.com/gpu: "1"
+                      volumeMounts:
+                        - mountPath: /dev/shm
+                          name: shm
+                  volumes:
+                    - name: shm
+                      emptyDir:
+                        medium: Memory
+                        sizeLimit: 2Gi
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: servingruntime-userb
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: serving.kserve.io/v1alpha1
+                kind: ServingRuntime
+                metadata:
+                  name: vllm-granite
+                  namespace: userb
+                  annotations:
+                    openshift.io/display-name: "vLLM Granite GPU Runtime"
+                    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+                spec:
+                  annotations:
+                    prometheus.io/port: "8080"
+                    prometheus.io/path: "/metrics"
+                  multiModel: false
+                  supportedModelFormats:
+                    - autoSelect: true
+                      name: vLLM
+                  containers:
+                    - name: kserve-container
+                      image: quay.io/modh/vllm:rhoai-2.16-cuda
+                      command:
+                        - python
+                        - -m
+                        - vllm.entrypoints.openai.api_server
+                      args:
+                        - "--model=/mnt/models"
+                        - "--served-model-name={{.Name}}"
+                        - "--max-model-len=2048"
+                        - "--gpu-memory-utilization=0.92"
+                        - "--dtype=float16"
+                        - "--max-num-seqs=1"
+                        - "--port=8080"
+                      env:
+                        - name: HF_HOME
+                          value: /tmp/hf_home
+                      ports:
+                        - containerPort: 8080
+                          protocol: TCP
+                      resources:
+                        requests:
+                          cpu: "2"
+                          memory: "8Gi"
+                          nvidia.com/gpu: "1"
+                        limits:
+                          cpu: "4"
+                          memory: "16Gi"
+                          nvidia.com/gpu: "1"
+                      volumeMounts:
+                        - mountPath: /dev/shm
+                          name: shm
+                  volumes:
+                    - name: shm
+                      emptyDir:
+                        medium: Memory
+                        sizeLimit: 2Gi
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-servingruntimes-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-servingruntimes
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

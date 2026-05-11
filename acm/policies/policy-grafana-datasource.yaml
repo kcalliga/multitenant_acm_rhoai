@@ -1,0 +1,107 @@
+# acm/policies/policy-grafana-datasource.yaml
+# Creates a GrafanaDataSource in each tenant namespace pointing at
+# the OpenShift thanos-querier for cluster Prometheus metrics.
+#
+# NOTE: The Bearer token (GRAFANA_SA_TOKEN) must be injected into the
+# Grafana deployment after the SA token secret is created.
+# Run observability/create-sa-tokens.sh after this policy is enforced
+# and the Grafana pods are Running.
+#
+# Depends on policy-grafana-instances being enforced first.
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-grafana-datasource
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-datasource-usera
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: grafana.integreatly.org/v1beta1
+                kind: GrafanaDataSource
+                metadata:
+                  name: prometheus-usera
+                  namespace: usera
+                spec:
+                  instanceSelector:
+                    matchLabels:
+                      dashboards: grafana-usera
+                  datasources:
+                    - name: Prometheus
+                      type: prometheus
+                      access: proxy
+                      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+                      isDefault: true
+                      jsonData:
+                        httpHeaderName1: Authorization
+                        timeInterval: 30s
+                        tlsSkipVerify: true
+                      secureJsonData:
+                        httpHeaderValue1: >-
+                          Bearer ${GRAFANA_SA_TOKEN}
+                      editable: false
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-datasource-userb
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: grafana.integreatly.org/v1beta1
+                kind: GrafanaDataSource
+                metadata:
+                  name: prometheus-userb
+                  namespace: userb
+                spec:
+                  instanceSelector:
+                    matchLabels:
+                      dashboards: grafana-userb
+                  datasources:
+                    - name: Prometheus
+                      type: prometheus
+                      access: proxy
+                      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+                      isDefault: true
+                      jsonData:
+                        httpHeaderName1: Authorization
+                        timeInterval: 30s
+                        tlsSkipVerify: true
+                      secureJsonData:
+                        httpHeaderValue1: >-
+                          Bearer ${GRAFANA_SA_TOKEN}
+                      editable: false
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-grafana-datasource-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-grafana-datasource
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

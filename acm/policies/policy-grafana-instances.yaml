@@ -1,0 +1,229 @@
+# acm/policies/policy-grafana-instances.yaml
+# Deploys one Grafana CR per tenant namespace along with the
+# ServiceAccount and ClusterRoleBindings needed to query
+# the OpenShift monitoring stack (thanos-querier).
+#
+# Depends on policy-namespaces and policy-grafana-operator being enforced first.
+# Replace CLUSTER_DOMAIN before applying:
+#   grep -rl 'CLUSTER_DOMAIN' . | xargs sed -i "s/CLUSTER_DOMAIN/<your-domain>/g"
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-grafana-instances
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    # ── ServiceAccount - usera ─────────────────────────────────────────────
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-sa-usera
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ServiceAccount
+                metadata:
+                  name: grafana-sa-usera
+                  namespace: usera
+                  annotations:
+                    serviceaccounts.openshift.io/oauth-redirectreference.grafana: >
+                      {"kind":"OAuthRedirectReference","apiVersion":"v1",
+                       "reference":{"kind":"Route","name":"grafana-usera"}}
+
+    # ── ServiceAccount - userb ─────────────────────────────────────────────
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-sa-userb
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ServiceAccount
+                metadata:
+                  name: grafana-sa-userb
+                  namespace: userb
+                  annotations:
+                    serviceaccounts.openshift.io/oauth-redirectreference.grafana: >
+                      {"kind":"OAuthRedirectReference","apiVersion":"v1",
+                       "reference":{"kind":"Route","name":"grafana-userb"}}
+
+    # ── ClusterRoleBinding - usera monitoring view ─────────────────────────
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-crb-usera
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: rbac.authorization.k8s.io/v1
+                kind: ClusterRoleBinding
+                metadata:
+                  name: grafana-usera-monitoring-view
+                roleRef:
+                  apiGroup: rbac.authorization.k8s.io
+                  kind: ClusterRole
+                  name: cluster-monitoring-view
+                subjects:
+                  - kind: ServiceAccount
+                    name: grafana-sa-usera
+                    namespace: usera
+
+    # ── ClusterRoleBinding - userb monitoring view ─────────────────────────
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-crb-userb
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: rbac.authorization.k8s.io/v1
+                kind: ClusterRoleBinding
+                metadata:
+                  name: grafana-userb-monitoring-view
+                roleRef:
+                  apiGroup: rbac.authorization.k8s.io
+                  kind: ClusterRole
+                  name: cluster-monitoring-view
+                subjects:
+                  - kind: ServiceAccount
+                    name: grafana-sa-userb
+                    namespace: userb
+
+    # ── Grafana CR - usera ─────────────────────────────────────────────────
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-instance-usera
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: grafana.integreatly.org/v1beta1
+                kind: Grafana
+                metadata:
+                  name: grafana-usera
+                  namespace: usera
+                  labels:
+                    dashboards: grafana-usera
+                spec:
+                  serviceAccount:
+                    metadata:
+                      name: grafana-sa-usera
+                  config:
+                    log:
+                      mode: console
+                    auth:
+                      disable_login_form: "false"
+                    security:
+                      admin_user: admin
+                      admin_password: grafana
+                  ingress:
+                    enabled: true
+                    annotations:
+                      route.openshift.io/termination: edge
+                    hostname: grafana-usera.apps.CLUSTER_DOMAIN
+                  deployment:
+                    spec:
+                      template:
+                        spec:
+                          containers:
+                            - name: grafana
+                              resources:
+                                requests:
+                                  cpu: 100m
+                                  memory: 256Mi
+                                limits:
+                                  cpu: 500m
+                                  memory: 512Mi
+
+    # ── Grafana CR - userb ─────────────────────────────────────────────────
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: grafana-instance-userb
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: grafana.integreatly.org/v1beta1
+                kind: Grafana
+                metadata:
+                  name: grafana-userb
+                  namespace: userb
+                  labels:
+                    dashboards: grafana-userb
+                spec:
+                  serviceAccount:
+                    metadata:
+                      name: grafana-sa-userb
+                  config:
+                    log:
+                      mode: console
+                    auth:
+                      disable_login_form: "false"
+                    security:
+                      admin_user: admin
+                      admin_password: grafana
+                  ingress:
+                    enabled: true
+                    annotations:
+                      route.openshift.io/termination: edge
+                    hostname: grafana-userb.apps.CLUSTER_DOMAIN
+                  deployment:
+                    spec:
+                      template:
+                        spec:
+                          containers:
+                            - name: grafana
+                              resources:
+                                requests:
+                                  cpu: 100m
+                                  memory: 256Mi
+                                limits:
+                                  cpu: 500m
+                                  memory: 512Mi
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-grafana-instances-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-grafana-instances
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

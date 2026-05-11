@@ -1,0 +1,111 @@
+# observability/grafana-instances.yaml
+#
+# Deploys one Grafana instance per tenant namespace.
+# Each instance has its own ServiceAccount which is granted
+# cluster-monitoring-view to query the OpenShift Prometheus/Thanos stack.
+#
+# Grafana is exposed via an OpenShift Route with TLS edge termination.
+# Routes:
+#   usera:  https://grafana-usera.apps.CLUSTER_DOMAIN
+#   userb:  https://grafana-userb.apps.CLUSTER_DOMAIN
+---
+# ── Service Accounts ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-sa-usera
+  namespace: usera
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.grafana: >
+      {"kind":"OAuthRedirectReference","apiVersion":"v1",
+       "reference":{"kind":"Route","name":"grafana-usera"}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-sa-userb
+  namespace: userb
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.grafana: >
+      {"kind":"OAuthRedirectReference","apiVersion":"v1",
+       "reference":{"kind":"Route","name":"grafana-userb"}}
+---
+# ── Grafana CR - usera ───────────────────────────────────────────────────────
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana-usera
+  namespace: usera
+  labels:
+    dashboards: grafana-usera
+spec:
+  serviceAccount:
+    metadata:
+      name: grafana-sa-usera
+  config:
+    log:
+      mode: console
+    auth:
+      disable_login_form: "false"
+    security:
+      admin_user: admin
+      admin_password: grafana   # change for production
+  ingress:
+    enabled: true
+    ingressClassName: ""
+    annotations:
+      route.openshift.io/termination: edge
+    hostname: grafana-usera.apps.CLUSTER_DOMAIN
+  deployment:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: grafana
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+---
+# ── Grafana CR - userb ───────────────────────────────────────────────────────
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana-userb
+  namespace: userb
+  labels:
+    dashboards: grafana-userb
+spec:
+  serviceAccount:
+    metadata:
+      name: grafana-sa-userb
+  config:
+    log:
+      mode: console
+    auth:
+      disable_login_form: "false"
+    security:
+      admin_user: admin
+      admin_password: grafana   # change for production
+  ingress:
+    enabled: true
+    ingressClassName: ""
+    annotations:
+      route.openshift.io/termination: edge
+    hostname: grafana-userb.apps.CLUSTER_DOMAIN
+  deployment:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: grafana
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

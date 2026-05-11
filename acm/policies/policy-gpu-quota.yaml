@@ -1,0 +1,72 @@
+# acm/policies/policy-gpu-quota.yaml
+# Enforces a ResourceQuota of 1 GPU per tenant namespace.
+# Depends on policy-namespaces being enforced first.
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-gpu-quota
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: gpu-quota-usera
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ResourceQuota
+                metadata:
+                  name: gpu-quota
+                  namespace: usera
+                spec:
+                  hard:
+                    requests.nvidia.com/gpu: "1"
+                    limits.nvidia.com/gpu: "1"
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: gpu-quota-userb
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ResourceQuota
+                metadata:
+                  name: gpu-quota
+                  namespace: userb
+                spec:
+                  hard:
+                    requests.nvidia.com/gpu: "1"
+                    limits.nvidia.com/gpu: "1"
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-gpu-quota-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-gpu-quota
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

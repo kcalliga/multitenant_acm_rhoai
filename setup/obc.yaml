@@ -1,0 +1,30 @@
+# setup/obc.yaml
+# NooBaa will provision an isolated S3 bucket for each tenant and
+# create a Secret + ConfigMap in the same namespace with credentials.
+#
+# Secret name matches the OBC name:  granite-models-usera / granite-models-userb
+# ConfigMap name matches the OBC name as well.
+#
+# The upload Job and RHOAI DataConnection both reference these.
+---
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: granite-models-usera
+  namespace: usera
+spec:
+  generateBucketName: granite-models-usera
+  storageClassName: openshift-storage.noobaa.io
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class
+---
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: granite-models-userb
+  namespace: userb
+spec:
+  generateBucketName: granite-models-userb
+  storageClassName: openshift-storage.noobaa.io
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class

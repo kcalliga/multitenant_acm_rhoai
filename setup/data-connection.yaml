@@ -1,0 +1,43 @@
+# setup/data-connection.yaml
+#
+# RHOAI DataConnection is just a Secret with specific labels and keys
+# that the RHOAI dashboard and KServe storage-initializer understand.
+#
+# NooBaa creates a Secret named after the OBC containing:
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+# and a ConfigMap containing:
+#   BUCKET_NAME, BUCKET_HOST, BUCKET_PORT
+#
+# Because the OBC secret and the DataConnection secret must be the same
+# object (or we duplicate credentials), we patch the OBC-generated secret
+# in place by adding the required RHOAI labels and the remaining keys.
+#
+# Run the following script AFTER the OBCs are Bound:
+#
+#   ./setup/patch-data-connections.sh
+#
+# That script is the authoritative way to create the DataConnections.
+# The template below is for reference only.
+#
+# ---------------------------------------------------------------------
+# REFERENCE TEMPLATE (do not apply directly)
+# ---------------------------------------------------------------------
+#
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: aws-connection-granite-usera        # name shown in RHOAI UI
+#   namespace: usera
+#   labels:
+#     opendatahub.io/managed: "true"
+#     opendatahub.io/dashboard: "true"
+#   annotations:
+#     opendatahub.io/connection-type: s3
+#     openshift.io/display-name: "granite-usera"
+# type: Opaque
+# stringData:
+#   AWS_ACCESS_KEY_ID: <from OBC secret>
+#   AWS_SECRET_ACCESS_KEY: <from OBC secret>
+#   AWS_DEFAULT_REGION: us-east-1            # NooBaa accepts any region string
+#   AWS_S3_BUCKET: <from OBC configmap BUCKET_NAME>
+#   AWS_S3_ENDPOINT: https://s3.openshift-storage.svc:443

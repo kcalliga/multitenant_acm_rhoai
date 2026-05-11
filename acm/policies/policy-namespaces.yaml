@@ -1,0 +1,114 @@
+# acm/policies/policy-namespaces.yaml
+# Creates usera and userb namespaces on the managed cluster
+# with the labels RHOAI needs to recognise them as Data Science Projects.
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-namespaces
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+spec:
+  disabled: false
+  remediationAction: enforce
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: namespace-usera
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: usera
+                  labels:
+                    kubernetes.io/metadata.name: usera
+                    opendatahub.io/dashboard: "true"
+                  annotations:
+                    openshift.io/display-name: "User A - Granite Inference"
+                    openshift.io/description: "Tenant A model serving namespace"
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: namespace-userb
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: userb
+                  labels:
+                    kubernetes.io/metadata.name: userb
+                    opendatahub.io/dashboard: "true"
+                  annotations:
+                    openshift.io/display-name: "User B - Granite Inference"
+                    openshift.io/description: "Tenant B model serving namespace"
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: datascienceproject-usera
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: datasciencecluster.opendatahub.io/v1
+                kind: DataScienceProject
+                metadata:
+                  name: usera
+                  namespace: usera
+                spec:
+                  description: "Tenant A - Granite 7B Inference"
+                  displayName: "User A"
+
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: datascienceproject-userb
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: datasciencecluster.opendatahub.io/v1
+                kind: DataScienceProject
+                metadata:
+                  name: userb
+                  namespace: userb
+                spec:
+                  description: "Tenant B - Granite 7B Inference"
+                  displayName: "User B"
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: policy-namespaces-binding
+  namespace: open-cluster-management-policies
+placementRef:
+  name: demo-ai-placement
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+subjects:
+  - name: policy-namespaces
+    apiGroup: policy.open-cluster-management.io
+    kind: Policy

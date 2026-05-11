@@ -1,0 +1,8 @@
+# acm/policygenerator/kustomization.yaml
+#
+# Kustomize entry point for the PolicyGenerator plugin.
+# ArgoCD reads this file when it processes the repo path
+# and invokes the PolicyGenerator plugin binary to expand
+# policygenerator.yaml into full ACM Policy objects.
+generators:
+  - policygenerator.yaml
