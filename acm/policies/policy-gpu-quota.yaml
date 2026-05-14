@@ -6,7 +6,7 @@ apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
   name: policy-gpu-quota
-  namespace: open-cluster-management-policies
+  namespace: default
   annotations:
     policy.open-cluster-management.io/categories: CM Configuration Management
     policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
@@ -19,7 +19,7 @@ spec:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: gpu-quota-usera
+          name: gpu-quota-user1
         spec:
           remediationAction: enforce
           severity: high
@@ -30,7 +30,7 @@ spec:
                 kind: ResourceQuota
                 metadata:
                   name: gpu-quota
-                  namespace: usera
+                  namespace: user1
                 spec:
                   hard:
                     requests.nvidia.com/gpu: "1"
@@ -40,7 +40,7 @@ spec:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: gpu-quota-userb
+          name: gpu-quota-user2
         spec:
           remediationAction: enforce
           severity: high
@@ -51,7 +51,7 @@ spec:
                 kind: ResourceQuota
                 metadata:
                   name: gpu-quota
-                  namespace: userb
+                  namespace: user2
                 spec:
                   hard:
                     requests.nvidia.com/gpu: "1"
@@ -61,7 +61,7 @@ apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
   name: policy-gpu-quota-binding
-  namespace: open-cluster-management-policies
+  namespace: default
 placementRef:
   name: demo-ai-placement
   apiGroup: cluster.open-cluster-management.io
