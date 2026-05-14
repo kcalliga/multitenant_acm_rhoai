@@ -1,7 +1,3 @@
-# acm/policies/policy-gpu-quota.yaml
-# Enforces a ResourceQuota of 1 GPU per tenant namespace.
-# Depends on policy-namespaces being enforced first.
----
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
@@ -35,7 +31,6 @@ spec:
                   hard:
                     requests.nvidia.com/gpu: "1"
                     limits.nvidia.com/gpu: "1"
-
     - objectDefinition:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
@@ -57,16 +52,31 @@ spec:
                     requests.nvidia.com/gpu: "1"
                     limits.nvidia.com/gpu: "1"
 ---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: policy-gpu-quota-placement
+  namespace: default
+spec:
+  tolerations:
+    - key: cluster.open-cluster-management.io/unreachable
+      operator: Exists
+    - key: cluster.open-cluster-management.io/unavailable
+      operator: Exists
+  clusterSets:
+    - rhoai
+---
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
-  name: policy-gpu-quota-binding
+  name: policy-gpu-quota-placement
   namespace: default
 placementRef:
-  name: demo-ai-placement
+  name: policy-gpu-quota-placement
   apiGroup: cluster.open-cluster-management.io
   kind: Placement
 subjects:
   - name: policy-gpu-quota
     apiGroup: policy.open-cluster-management.io
     kind: Policy
+
