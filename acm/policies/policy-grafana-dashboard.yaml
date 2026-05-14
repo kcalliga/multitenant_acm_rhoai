@@ -1,15 +1,8 @@
-# acm/policies/policy-grafana-dashboard.yaml
-# Deploys a DCGM GPU metrics dashboard into each tenant's Grafana instance.
-# The dashboard JSON uses a hidden namespace constant variable so each
-# tenant's dashboard only queries metrics from pods in their own namespace.
-#
-# Depends on policy-grafana-instances being enforced first.
----
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
   name: policy-grafana-dashboard
-  namespace: open-cluster-management-policies
+  namespace: default
   annotations:
     policy.open-cluster-management.io/categories: CM Configuration Management
     policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
@@ -18,12 +11,11 @@ spec:
   disabled: false
   remediationAction: enforce
   policy-templates:
-    # ── Dashboard - usera ──────────────────────────────────────────────────
     - objectDefinition:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: grafana-dashboard-usera
+          name: grafana-dashboard-user1
         spec:
           remediationAction: enforce
           severity: medium
@@ -34,12 +26,12 @@ spec:
                 kind: GrafanaDashboard
                 metadata:
                   name: gpu-metrics-usera
-                  namespace: usera
+                  namespace: user1
                 spec:
                   instanceSelector:
                     matchLabels:
-                      dashboards: grafana-usera
-                  json: |
+                      dashboards: grafana-user1
+                  json: >
                     {
                       "title": "GPU Metrics - User A",
                       "uid": "gpu-usera",
@@ -238,13 +230,11 @@ spec:
                       ],
                       "schemaVersion": 36
                     }
-
-    # ── Dashboard - userb ──────────────────────────────────────────────────
     - objectDefinition:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: grafana-dashboard-userb
+          name: grafana-dashboard-user2
         spec:
           remediationAction: enforce
           severity: medium
@@ -254,13 +244,13 @@ spec:
                 apiVersion: grafana.integreatly.org/v1beta1
                 kind: GrafanaDashboard
                 metadata:
-                  name: gpu-metrics-userb
-                  namespace: userb
+                  name: gpu-metrics-user2
+                  namespace: user2
                 spec:
                   instanceSelector:
                     matchLabels:
-                      dashboards: grafana-userb
-                  json: |
+                      dashboards: grafana-user2
+                  json: >
                     {
                       "title": "GPU Metrics - User B",
                       "uid": "gpu-userb",
@@ -460,13 +450,27 @@ spec:
                       "schemaVersion": 36
                     }
 ---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: policy-grafana-dashboard-placement
+  namespace: default
+spec:
+  tolerations:
+    - key: cluster.open-cluster-management.io/unreachable
+      operator: Exists
+    - key: cluster.open-cluster-management.io/unavailable
+      operator: Exists
+  clusterSets:
+    - rhoai
+---
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
-  name: policy-grafana-dashboard-binding
-  namespace: open-cluster-management-policies
+  name: policy-grafana-dashboard-placement
+  namespace: default
 placementRef:
-  name: demo-ai-placement
+  name: policy-grafana-dashboard-placement
   apiGroup: cluster.open-cluster-management.io
   kind: Placement
 subjects:
