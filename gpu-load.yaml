@@ -1,16 +1,17 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: gpu-vram-load
+  name: gpu-vram-max
   namespace: user1
 spec:
   restartPolicy: Always
   containers:
   - name: cuda-nbody
     image: nvcr.io/nvidia/k8s/cuda-sample:nbody-cuda11.7.1-ubuntu18.04
-    # -benchmark: No window needed
-    # -numbodies: This is the lever for VRAM. Higher = more memory used.
-    args: ["-benchmark", "-numbodies=1024000"]
+    args: 
+      - "-benchmark" 
+      - "-numbodies=2048000"  # Pushing to ~2 million bodies
+      - "-fp64"               # Use double precision to inflate VRAM usage
     resources:
       limits:
         nvidia.com/gpu: 1
